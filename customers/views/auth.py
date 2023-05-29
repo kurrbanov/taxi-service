@@ -2,9 +2,10 @@ from fastapi import APIRouter
 from fastapi.responses import JSONResponse, RedirectResponse, Response
 
 from server.db import get_session
-from customers.schemas import SignUpModel, SignInModel
+from customers.schemas import SignUpModel, SignInModel, Customer
 from customers.utils import (
     get_customer_by_phone,
+    get_customer_by_id,
     create_customer,
     generate_cookie,
 )
@@ -33,7 +34,7 @@ async def signup(sign_up_data: SignUpModel):
 async def signin(sign_in_data: SignInModel):
     customer_ = await get_customer_by_phone(db=get_session(), phone=sign_in_data.phone)
     if not customer_:
-        content = {"phone": "Пользователя не существует."}
+        content = {"error": "Пользователя не существует."}
         return JSONResponse(status_code=400, content=content)
 
     cookie = generate_cookie(customer_id=customer_.id)
@@ -42,11 +43,25 @@ async def signin(sign_in_data: SignInModel):
     return response
 
 
-@router.get("api/v1/customer/{customer_id}")
+@router.get("/api/v1/customer/{customer_id}")
 async def customer(customer_id: int):
-    pass
+    customer_ = await get_customer_by_id(customer_id)
+    if not customer_:
+        content = {"error": "Пользователя не существует"}
+        return JSONResponse(status_code=404, content=content)
+    content = Customer.from_orm(customer_).dict()
+    return JSONResponse(status_code=200, content=content)
 
 
-@router.delete("api/v1/customer/{customer_id}")
+@router.delete("/api/v1/customer/{customer_id}")
 async def customer_delete(customer_id: int):
-    pass
+    customer_ = await get_customer_by_id(customer_id)
+    if not customer_:
+        content = {"error": "Пользователя не существует"}
+        return JSONResponse(status_code=404, content=content)
+
+    async with get_session() as db:
+        customer_.is_active = False
+        await db.commit()
+    content = {"id": customer_id}
+    return JSONResponse(status_code=204, content=content)

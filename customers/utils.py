@@ -42,3 +42,9 @@ def generate_cookie(customer_id: int) -> str:
     auth_redis.set(customer_id, cookie)
     auth_redis.expire(customer_id, timedelta(weeks=config.COOKIE_EXPIRE_WEEKS))
     return cookie
+
+
+async def get_customer_by_id(customer_id) -> Customer | None:
+    async with get_session() as db:
+        customer = await db.get(Customer, customer_id)
+    return customer
